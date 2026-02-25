@@ -19,6 +19,8 @@ public class ClienteChat {
     private InterfazGrafica gui;
     private String nombreUsuario;
     private volatile boolean conectado = false;
+    private String host;
+    private int puerto;
 
     public static void main(String[] args) {
         String host = HOST_DEFAULT;
@@ -43,11 +45,13 @@ public class ClienteChat {
     }
 
     private void iniciar(String host, int puerto) {
+        this.host = host;
+        this.puerto = puerto;
         gui = new InterfazGrafica(this);
-        conectar(host, puerto);
+        conectar();
     }
 
-    private void conectar(String host, int puerto) {
+    private void conectar() {
         try {
             socket = new Socket(host, puerto);
             salida = new ObjectOutputStream(socket.getOutputStream());
@@ -62,6 +66,11 @@ public class ClienteChat {
         } catch (IOException e) {
             gui.mostrarError("No se pudo conectar al servidor: " + e.getMessage());
         }
+    }
+
+    public void reconectar() {
+        if (conectado) return;
+        conectar();
     }
 
     public void enviarMensaje(Mensaje mensaje) {

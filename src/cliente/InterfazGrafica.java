@@ -23,15 +23,15 @@ public class InterfazGrafica extends JFrame {
     private static final Color C_WARN    = new Color(0xF59E0B);
 
     // Colores de burbujas (como strings hex para HTML)
-    private static final String H_OWN_BG  = "#6366F1";
-    private static final String H_OWN_FG  = "#FFFFFF";
-    private static final String H_OTH_BG  = "#E5E7EB";
-    private static final String H_OTH_FG  = "#1F2937";
-    private static final String H_SYS     = "#9CA3AF";
-    private static final String H_JOIN    = "#059669"; // verde esmeralda
-    private static final String H_LEAVE   = "#DC2626"; // rojo
-    private static final String H_PRIV_BG = "#FEF3C7";
-    private static final String H_PRIV_FG = "#92400E";
+    private static final String H_OWN_BG  = "#6366F1"; // fondo burbuja propia (mensajes enviados por el usuario)
+    private static final String H_OWN_FG  = "#FFFFFF"; // texto burbuja propia
+    private static final String H_OTH_BG  = "#059669"; // fondo burbuja ajena (mensajes de otros usuarios)
+    private static final String H_OTH_FG  = "#1F2937"; // texto burbuja ajena
+    private static final String H_SYS     = "#8ccc7a"; // mensajes de sistema genéricos (gris)
+    private static final String H_JOIN    = "#8ccc7a"; // notificación de usuario que se une al chat (verde)
+    private static final String H_LEAVE   = "#DC2626"; // notificación de usuario que abandona el chat (rojo)
+    private static final String H_PRIV_BG = "#FEF3C7"; // fondo mensaje privado (amarillo claro)
+    private static final String H_PRIV_FG = "#92400E"; // texto mensaje privado (marrón)
 
     // ── Fuentes ───────────────────────────────────────────────
     private static final Font F_TITLE  = new Font("Segoe UI", Font.BOLD, 26);
@@ -190,6 +190,7 @@ public class InterfazGrafica extends JFrame {
                 lblEstado.setForeground(C_PRIMARY);
                 btnLogin.setEnabled(false);
                 btnRegistro.setEnabled(false);
+                cliente.reconectar();
                 cliente.enviarMensaje(new Mensaje(TipoMensaje.LOGIN, password, usuario));
             }
         };
@@ -203,6 +204,9 @@ public class InterfazGrafica extends JFrame {
             if (!usuario.isEmpty() && !password.isEmpty()) {
                 lblEstado.setText("Registrando...");
                 lblEstado.setForeground(C_PRIMARY);
+                btnLogin.setEnabled(false);
+                btnRegistro.setEnabled(false);
+                cliente.reconectar();
                 cliente.enviarMensaje(new Mensaje(TipoMensaje.REGISTER, password, usuario));
             }
         });
@@ -355,9 +359,9 @@ public class InterfazGrafica extends JFrame {
         return "<table width='100%' border='0' cellpadding='3' cellspacing='0'>"
              + "<tr><td width='22%'>&nbsp;</td>"
              + "<td bgcolor='" + H_OWN_BG + "' style='padding:9px 14px;'>"
-             + "<font color='" + H_OWN_FG + "' face='Segoe UI,Arial' size='3'>"
+             + "<font color='" + H_OWN_FG + "' face='Segoe UI,Arial' size='4'>"
              + esc(texto) + "</font>"
-             + "<br><font color='#C7D2FE' size='1'>" + esc(hora) + "</font>"
+             + "<br><font color='#C7D2FE' size='2'>" + esc(hora) + "</font>"
              + "</td></tr></table>";
     }
 
@@ -365,10 +369,10 @@ public class InterfazGrafica extends JFrame {
     private String htmlBurbujaAjena(String remitente, String texto, String hora) {
         return "<table width='100%' border='0' cellpadding='3' cellspacing='0'>"
              + "<tr><td width='78%' bgcolor='" + H_OTH_BG + "' style='padding:9px 14px;'>"
-             + "<font color='" + H_SYS + "' size='2'><b>" + esc(remitente) + "</b></font><br>"
-             + "<font color='" + H_OTH_FG + "' face='Segoe UI,Arial' size='3'>"
+             + "<font color='" + H_SYS + "' size='3'><b>" + esc(remitente) + "</b></font><br>"
+             + "<font color='" + H_OTH_FG + "' face='Segoe UI,Arial' size='4'>"
              + esc(texto) + "</font>"
-             + "<br><font color='" + H_SYS + "' size='1'>" + esc(hora) + "</font>"
+             + "<br><font color='" + H_SYS + "' size='2'>" + esc(hora) + "</font>"
              + "</td><td width='22%'>&nbsp;</td></tr></table>";
     }
 
@@ -376,7 +380,7 @@ public class InterfazGrafica extends JFrame {
     private String htmlSistema(String texto) {
         return "<table width='100%' border='0' cellpadding='6' cellspacing='0'>"
              + "<tr><td align='center'>"
-             + "<font color='" + H_SYS + "' size='2'><i>" + esc(texto) + "</i></font>"
+             + "<font color='" + H_SYS + "' size='3'><i>" + esc(texto) + "</i></font>"
              + "</td></tr></table>";
     }
 
@@ -384,7 +388,7 @@ public class InterfazGrafica extends JFrame {
     private String htmlUnion(String texto) {
         return "<table width='100%' border='0' cellpadding='6' cellspacing='0'>"
              + "<tr><td align='center'>"
-             + "<font color='" + H_JOIN + "' size='2'><i>" + esc(texto) + "</i></font>"
+             + "<font color='" + H_JOIN + "' size='3'><i>" + esc(texto) + "</i></font>"
              + "</td></tr></table>";
     }
 
@@ -392,7 +396,7 @@ public class InterfazGrafica extends JFrame {
     private String htmlSalida(String texto) {
         return "<table width='100%' border='0' cellpadding='6' cellspacing='0'>"
              + "<tr><td align='center'>"
-             + "<font color='" + H_LEAVE + "' size='2'><i>" + esc(texto) + "</i></font>"
+             + "<font color='" + H_LEAVE + "' size='3'><i>" + esc(texto) + "</i></font>"
              + "</td></tr></table>";
     }
 
@@ -400,10 +404,10 @@ public class InterfazGrafica extends JFrame {
     private String htmlPrivado(String remitente, String texto, String hora) {
         return "<table width='100%' border='0' cellpadding='3' cellspacing='0'>"
              + "<tr><td width='78%' bgcolor='" + H_PRIV_BG + "' style='padding:9px 14px;'>"
-             + "<font color='" + H_PRIV_FG + "' size='2'><b>[Privado] " + esc(remitente) + "</b></font><br>"
-             + "<font color='" + H_PRIV_FG + "' face='Segoe UI,Arial' size='3'>"
+             + "<font color='" + H_PRIV_FG + "' size='3'><b>[Privado] " + esc(remitente) + "</b></font><br>"
+             + "<font color='" + H_PRIV_FG + "' face='Segoe UI,Arial' size='4'>"
              + esc(texto) + "</font>"
-             + "<br><font color='" + H_SYS + "' size='1'>" + esc(hora) + "</font>"
+             + "<br><font color='" + H_SYS + "' size='2'>" + esc(hora) + "</font>"
              + "</td><td width='22%'>&nbsp;</td></tr></table>";
     }
 
