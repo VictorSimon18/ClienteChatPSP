@@ -17,7 +17,7 @@ public class InterfazGrafica extends JFrame {
     private static final Color C_PRI_HVR = new Color(0x4F46E5);
     private static final Color C_TEXT    = new Color(0x1F2937);
     private static final Color C_MUTED   = new Color(0x94FF02);
-    private static final Color C_BORDER  = new Color(0xE5E7EB);
+    private static final Color C_BORDER  = new Color(0xE2E2E6);
     private static final Color C_SIDEBAR = new Color(0xF3F4F6);
     private static final Color C_ERROR   = new Color(0xEF4444);
     private static final Color C_WARN    = new Color(0xF59E0B);
@@ -25,9 +25,9 @@ public class InterfazGrafica extends JFrame {
     // Colores de burbujas (como strings hex para HTML)
     private static final String H_OWN_BG  = "#6366F1"; // fondo burbuja propia (mensajes enviados por el usuario)
     private static final String H_OWN_FG  = "#FFFFFF"; // texto burbuja propia
-    private static final String H_OTH_BG  = "#059669"; // fondo burbuja ajena (mensajes de otros usuarios)
+    private static final String H_OTH_BG  = "#E5E7EB"; // fondo burbuja ajena (mensajes de otros usuarios)
     private static final String H_OTH_FG  = "#1F2937"; // texto burbuja ajena
-    private static final String H_SYS     = "#8ccc7a"; // mensajes de sistema genéricos (gris)
+    private static final String H_SYS     = "#454547FF"; // mensajes de sistema genéricos (gris)
     private static final String H_JOIN    = "#8ccc7a"; // notificación de usuario que se une al chat (verde)
     private static final String H_LEAVE   = "#DC2626"; // notificación de usuario que abandona el chat (rojo)
     private static final String H_PRIV_BG = "#FEF3C7"; // fondo mensaje privado (amarillo claro)
@@ -43,6 +43,7 @@ public class InterfazGrafica extends JFrame {
     private static final Font F_SIDE   = new Font("Segoe UI", Font.PLAIN, 13);
 
     private final ClienteChat cliente;
+    private boolean estaRegistrando = false;
 
     // ── Componentes Login ─────────────────────────────────────
     private JPanel       panelLogin;
@@ -186,6 +187,7 @@ public class InterfazGrafica extends JFrame {
             String usuario  = txtUsuario.getText().trim();
             String password = new String(txtPassword.getPassword());
             if (!usuario.isEmpty() && !password.isEmpty()) {
+                estaRegistrando = false;
                 lblEstado.setText("Conectando...");
                 lblEstado.setForeground(C_PRIMARY);
                 btnLogin.setEnabled(false);
@@ -202,6 +204,7 @@ public class InterfazGrafica extends JFrame {
             String usuario  = txtUsuario.getText().trim();
             String password = new String(txtPassword.getPassword());
             if (!usuario.isEmpty() && !password.isEmpty()) {
+                estaRegistrando = true;
                 lblEstado.setText("Registrando...");
                 lblEstado.setForeground(C_PRIMARY);
                 btnLogin.setEnabled(false);
@@ -500,14 +503,64 @@ public class InterfazGrafica extends JFrame {
 
     public void loginExitoso(String mensaje) {
         SwingUtilities.invokeLater(() -> {
-            mensajesHtml = new StringBuilder();
-            areaMensajes.setText(htmlBase(""));
-            agregarBurbuja(htmlSistema(mensaje));
-            setTitle("Chat PSP — " + cliente.getNombreUsuario());
-            lblHeaderNombre.setText(cliente.getNombreUsuario());
-            cardLayout.show(panelPrincipal, "CHAT");
-            txtMensaje.requestFocus();
+            if (estaRegistrando) {
+                estaRegistrando = false;
+                btnLogin.setEnabled(true);
+                btnRegistro.setEnabled(true);
+                lblEstado.setText(" ");
+                mostrarPopupRegistro();
+            } else {
+                mensajesHtml = new StringBuilder();
+                areaMensajes.setText(htmlBase(""));
+                agregarBurbuja(htmlSistema(mensaje));
+                setTitle("Chat PSP — " + cliente.getNombreUsuario());
+                lblHeaderNombre.setText(cliente.getNombreUsuario());
+                cardLayout.show(panelPrincipal, "CHAT");
+                txtMensaje.requestFocus();
+            }
         });
+    }
+
+    private void mostrarPopupRegistro() {
+        JDialog dialog = new JDialog(this, "Registro completado", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(340, 220);
+        dialog.setLocationRelativeTo(this);
+        dialog.setResizable(false);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBackground(Color.WHITE);
+        content.setBorder(new EmptyBorder(28, 36, 24, 36));
+
+        JLabel icono = new JLabel("✓", SwingConstants.CENTER);
+        icono.setFont(new Font("Segoe UI", Font.BOLD, 40));
+        icono.setForeground(new Color(0x059669));
+        icono.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(icono);
+        content.add(Box.createVerticalStrut(10));
+
+        JLabel titulo = new JLabel("¡Registro completado!", SwingConstants.CENTER);
+        titulo.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        titulo.setForeground(C_TEXT);
+        titulo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(titulo);
+        content.add(Box.createVerticalStrut(4));
+
+        JLabel sub = new JLabel("Ya puedes iniciar sesión.", SwingConstants.CENTER);
+        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        sub.setForeground(C_MUTED);
+        sub.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(sub);
+        content.add(Box.createVerticalStrut(20));
+
+        JButton btnVolver = crearBotonPrimario("Volver al inicio de sesión");
+        content.add(btnVolver);
+
+        dialog.add(content);
+        btnVolver.addActionListener(e -> dialog.dispose());
+        dialog.setVisible(true);
     }
 
     public void actualizarListaUsuarios(String listaCSV) {

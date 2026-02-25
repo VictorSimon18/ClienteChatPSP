@@ -26,7 +26,21 @@ public class ClienteChat {
         String host = HOST_DEFAULT;
         int puerto = PUERTO_DEFAULT;
 
-        if (args.length >= 1) host = args[0];
+        if (args.length >= 1) {
+            host = args[0];
+        } else {
+            String input = (String) JOptionPane.showInputDialog(
+                null,
+                "Dirección IP del servidor:",
+                "Conectar al servidor",
+                JOptionPane.PLAIN_MESSAGE,
+                null, null,
+                HOST_DEFAULT
+            );
+            if (input == null) System.exit(0);
+            if (!input.trim().isEmpty()) host = input.trim();
+        }
+
         if (args.length >= 2) {
             try {
                 puerto = Integer.parseInt(args[1]);
