@@ -5,52 +5,42 @@ import comun.TipoMensaje;
 
 import javax.swing.*;
 import java.io.*;
-import java.net.Socket;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 public class ClienteChat {
 
     private static final String HOST_DEFAULT = "localhost";
-    private static final int PUERTO_DEFAULT = 12345;
+    private static final int    PUERTO_DEFAULT = 12345;
 
-    private Socket socket;
-    private ObjectOutputStream salida;
-    private ObjectInputStream entrada;
+    private String baseUrl;
     private ReceptorMensajes receptor;
     private InterfazGrafica gui;
-    private String nombreUsuario;
-    private volatile boolean conectado = false;
-    private String host;
-    private int puerto;
+    private volatile String nombreUsuario;
 
     public static void main(String[] args) {
-        String host = HOST_DEFAULT;
-        int puerto = PUERTO_DEFAULT;
+        String host  = HOST_DEFAULT;
+        int    puerto = PUERTO_DEFAULT;
 
         if (args.length >= 1) {
             host = args[0];
         } else {
             String input = (String) JOptionPane.showInputDialog(
-                null,
-                "Dirección IP del servidor:",
-                "Conectar al servidor",
-                JOptionPane.PLAIN_MESSAGE,
-                null, null,
-                HOST_DEFAULT
-            );
+                null, "Dirección IP del servidor:", "Conectar al servidor",
+                JOptionPane.PLAIN_MESSAGE, null, null, HOST_DEFAULT);
             if (input == null) System.exit(0);
             if (!input.trim().isEmpty()) host = input.trim();
         }
 
         if (args.length >= 2) {
-            try {
-                puerto = Integer.parseInt(args[1]);
-            } catch (NumberFormatException e) {
-                System.out.println("Puerto inválido. Usando " + PUERTO_DEFAULT);
-            }
+            try { puerto = Integer.parseInt(args[1]); }
+            catch (NumberFormatException e) { System.out.println("Puerto inválido. Usando " + PUERTO_DEFAULT); }
         }
 
-        final String finalHost = host;
-        final int finalPuerto = puerto;
+        final String finalHost   = host;
+        final int    finalPuerto = puerto;
 
         SwingUtilities.invokeLater(() -> {
             ClienteChat cliente = new ClienteChat();
@@ -59,71 +49,100 @@ public class ClienteChat {
     }
 
     private void iniciar(String host, int puerto) {
-        this.host = host;
-        this.puerto = puerto;
+        this.baseUrl = "http://" + host + ":" + puerto;
         gui = new InterfazGrafica(this);
-        conectar();
     }
 
-    private void conectar() {
-        try {
-            socket = new Socket(host, puerto);
-            salida = new ObjectOutputStream(socket.getOutputStream());
-            salida.flush();
-            entrada = new ObjectInputStream(socket.getInputStream());
-            conectado = true;
-
-            receptor = new ReceptorMensajes(entrada, gui);
-            receptor.start();
-
-            System.out.println("Conectado al servidor " + host + ":" + puerto);
-        } catch (IOException e) {
-            gui.mostrarError("No se pudo conectar al servidor: " + e.getMessage());
-        }
-    }
-
-    public void reconectar() {
-        if (conectado) return;
-        conectar();
-    }
+    // ── API pública ─────────────────────────────────────────────────────────
 
     public void enviarMensaje(Mensaje mensaje) {
         if (mensaje.getTipo() == TipoMensaje.LOGIN || mensaje.getTipo() == TipoMensaje.REGISTER) {
             nombreUsuario = mensaje.getRemitente();
         }
-
-        try {
-            if (salida != null && conectado) {
-                synchronized (salida) {
-                    salida.writeObject(mensaje);
-                    salida.flush();
-                    salida.reset();
+        new Thread(() -> {
+            try {
+                switch (mensaje.getTipo()) {
+                    case LOGIN, REGISTER -> doAutenticar(mensaje);
+                    case MESSAGE         -> doMensaje(mensaje);
+                    case DISCONNECT      -> doDesconectar();
                 }
+            } catch (IOException e) {
+                gui.mostrarError("Error de conexión: " + e.getMessage());
             }
-        } catch (IOException e) {
-            gui.mostrarError("Error al enviar mensaje: " + e.getMessage());
+        }, "ClienteHttp").start();
+    }
+
+    public void reconectar() { /* HTTP es sin estado, no es necesario */ }
+
+    public void desconectar() { doDesconectar(); }
+
+    public String getNombreUsuario() { return nombreUsuario; }
+
+    // ── Long polling (llamado desde ReceptorMensajes) ───────────────────────
+
+    public String longPoll(String usuario) throws IOException {
+        URL url = new URL(baseUrl + "/mensajes?usuario=" + enc(usuario));
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setConnectTimeout(5_000);
+        conn.setReadTimeout(35_000); // servidor espera 30 s
+        int status = conn.getResponseCode();
+        if (status == 204) return null; // timeout sin mensaje
+        if (status != 200) throw new IOException("HTTP " + status);
+        return new String(conn.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    }
+
+    // ── Operaciones internas ────────────────────────────────────────────────
+
+    private void doAutenticar(Mensaje mensaje) throws IOException {
+        String path = mensaje.getTipo() == TipoMensaje.LOGIN ? "/login" : "/register";
+        String body = "usuario=" + enc(mensaje.getRemitente())
+                    + "&password=" + enc(mensaje.getContenido());
+        String response = post(path, body);
+        String[] partes = response.split("\\|", 2);
+
+        if ("OK".equals(partes[0])) {
+            if (receptor != null) receptor.detener();
+            receptor = new ReceptorMensajes(this, gui, nombreUsuario);
+            receptor.setDaemon(true);
+            receptor.start();
+            gui.loginExitoso(partes.length > 1 ? partes[1] : "");
+        } else {
+            nombreUsuario = null;
+            gui.mostrarError(partes.length > 1 ? partes[1] : "Error desconocido");
         }
     }
 
-    public void desconectar() {
-        if (!conectado) return;
-        conectado = false;
+    private void doMensaje(Mensaje mensaje) throws IOException {
+        post("/mensaje", "usuario=" + enc(nombreUsuario)
+                       + "&contenido=" + enc(mensaje.getContenido()));
+    }
 
-        try {
-            enviarMensaje(new Mensaje(TipoMensaje.DISCONNECT, "", nombreUsuario != null ? nombreUsuario : ""));
-        } catch (Exception ignored) {}
-
-        try {
-            if (receptor != null) receptor.detener();
-            if (entrada != null) entrada.close();
-            if (salida != null) salida.close();
-            if (socket != null && !socket.isClosed()) socket.close();
-        } catch (IOException ignored) {}
-
+    private void doDesconectar() {
+        if (receptor != null) { receptor.detener(); receptor = null; }
+        try { post("/desconectar", "usuario=" + enc(nombreUsuario != null ? nombreUsuario : "")); }
+        catch (IOException ignored) {}
         nombreUsuario = null;
     }
 
-    public String getNombreUsuario() {
-        return nombreUsuario;
+    private String post(String path, String body) throws IOException {
+        URL url = new URL(baseUrl + path);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        conn.setConnectTimeout(5_000);
+        conn.setReadTimeout(10_000);
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        conn.setFixedLengthStreamingMode(bytes.length);
+        try (OutputStream os = conn.getOutputStream()) { os.write(bytes); }
+        int status = conn.getResponseCode();
+        InputStream is = status < 400 ? conn.getInputStream() : conn.getErrorStream();
+        return is != null ? new String(is.readAllBytes(), StandardCharsets.UTF_8) : "";
+    }
+
+    private static String enc(String s) {
+        try { return URLEncoder.encode(s != null ? s : "", "UTF-8"); }
+        catch (Exception e) { return ""; }
     }
 }
