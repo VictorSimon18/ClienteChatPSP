@@ -494,10 +494,20 @@ public class InterfazGrafica extends JFrame {
 
     public void mostrarError(String error) {
         SwingUtilities.invokeLater(() -> {
-            lblEstado.setText(error);
-            lblEstado.setForeground(C_ERROR);
-            btnLogin.setEnabled(true);
-            btnRegistro.setEnabled(true);
+            // Si estamos en el panel del chat, mostrar el error como burbuja de sistema
+            // para que sea visible (lblEstado solo es visible en el panel de login).
+            Component panelVisible = null;
+            for (Component c : panelPrincipal.getComponents()) {
+                if (c.isVisible()) { panelVisible = c; break; }
+            }
+            if (panelVisible == panelChat) {
+                agregarBurbuja(htmlSistema("Error: " + error));
+            } else {
+                lblEstado.setText(error);
+                lblEstado.setForeground(C_ERROR);
+                btnLogin.setEnabled(true);
+                btnRegistro.setEnabled(true);
+            }
         });
     }
 
