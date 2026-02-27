@@ -1,0 +1,13 @@
+# ── Certificados TLS — NUNCA subir a git ─────────────────────────────────────
+certs/truststore.jks
+
+# ── Clases compiladas ─────────────────────────────────────────────────────────
+out/
+*.class
+
+# ── IntelliJ IDEA ─────────────────────────────────────────────────────────────
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/dataSources/
+.idea/httpRequests/
